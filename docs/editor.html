@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mama Core</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+/* Layout: dark code editor — activity bar, explorer, tabs, code, status bar. Single deliberate dark look (film prop). */
+:root{
+  --bg:#1d1f26; --bg2:#181a20; --bg3:#22252d; --line:#262a33; --sel:#2b303b;
+  --fg:#c9ced8; --dim:#6b7383; --dim2:#4a515e; --accent:#5aa9ff;
+  --kw:#d08cff; --fn:#68b6ff; --str:#e6c26b; --num:#f2a06b; --cmt:#646d7e; --cls:#58d3c2; --self:#ff8199; --deco:#f7d36b;
+  --mono:"JetBrains Mono",ui-monospace,"Cascadia Code",Consolas,monospace;
+  --ui:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);overflow:hidden}
+body.idle, body.idle *{cursor:none!important}
+.app{display:grid;grid-template-columns:48px 230px 1fr;grid-template-rows:1fr 24px;height:100%;font-family:var(--ui);font-size:13px}
+.act{grid-row:1;background:var(--bg2);display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:14px;border-right:1px solid var(--line)}
+.act svg{width:22px;height:22px;stroke:var(--dim);fill:none;stroke-width:1.6}
+.act .on svg{stroke:var(--fg)}
+.side{grid-row:1;background:var(--bg2);border-right:1px solid var(--line);overflow:hidden;user-select:none}
+.side h6{margin:0;padding:10px 16px;font:500 11px var(--ui);letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+.tree{font-size:13px;line-height:22px}
+.tree div{padding-left:calc(12px + var(--d,0)*12px);white-space:nowrap;color:#aeb4bf}
+.tree .f::before{content:"▸ ";color:var(--dim)}
+.tree .o::before{content:"▾ ";color:var(--dim)}
+.tree .py{color:#aeb4bf}.tree .py::before{content:"py ";font:500 9px var(--mono);color:#e6c26b}
+.tree .js::before{content:"{} ";font:500 9px var(--mono);color:#e6c26b}
+.tree .cur{background:var(--sel);color:#fff}
+.main{grid-row:1;display:grid;grid-template-rows:35px 22px 1fr auto;min-width:0;min-height:0}
+.tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--line)}
+.tab{padding:0 16px;display:flex;align-items:center;gap:8px;color:var(--dim);border-right:1px solid var(--line)}
+.tab.on{background:var(--bg);color:var(--fg);border-top:1px solid var(--accent)}
+.tab b{font:500 9px var(--mono);color:#e6c26b}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--fg);opacity:.7}
+.crumb{padding:0 16px;color:var(--dim);font-size:12px;display:flex;align-items:center}
+.scroll{overflow-y:auto;overflow-x:hidden;font:400 15px/23px var(--mono);position:relative;scrollbar-width:thin;scrollbar-color:#333844 transparent}
+.ln{display:grid;grid-template-columns:64px 1fr;white-space:pre}
+.ln i{font-style:normal;text-align:right;padding-right:22px;color:var(--dim2);user-select:none}
+.ln.cur{background:var(--bg3)}
+.ln.cur i{color:var(--fg)}
+.ln span.c{min-width:0}
+.k{color:var(--kw)}.f{color:var(--fn)}.s{color:var(--str)}.n{color:var(--num)}.m{color:var(--cmt);font-style:italic}.cl{color:var(--cls)}.sf{color:var(--self);font-style:italic}.d{color:var(--deco)}
+.caret{display:inline-block;width:2px;height:19px;background:#e8ecf3;vertical-align:-4px;margin-left:-1px;animation:blink 1.06s steps(1) infinite}
+.typing .caret{animation:none}
+@keyframes blink{50%{opacity:0}}
+.term{background:var(--bg2);border-top:1px solid var(--line);height:0;overflow:hidden;transition:height .2s}
+.term.open{height:200px}
+.term header{display:flex;gap:18px;padding:6px 16px;font-size:11px;letter-spacing:.06em;color:var(--dim);text-transform:uppercase}
+.term header b{color:var(--fg);border-bottom:1px solid var(--accent);font-weight:500}
+.term pre{margin:0;padding:4px 16px;font:400 13px/20px var(--mono);color:#b9c0cc;white-space:pre-wrap}
+.term .ok{color:#7fd88f}.term .pr{color:var(--accent)}
+.status{grid-column:1/-1;background:#2c5fa8;color:#e9f1ff;display:flex;align-items:center;gap:18px;padding:0 12px;font-size:12px}
+.status .sp{flex:1}
+.panel{position:fixed;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;z-index:9}
+.panel form{background:var(--bg3);border:1px solid var(--line);padding:22px;border-radius:8px;display:grid;gap:12px;width:min(360px,90vw);font-size:13px}
+.panel h3{margin:0 0 4px;font:500 15px var(--ui)}
+.panel label{display:grid;gap:4px;color:var(--dim)}
+.panel input{background:var(--bg);border:1px solid var(--line);color:var(--fg);padding:7px 9px;border-radius:4px;font:14px var(--mono)}
+.panel .row{display:flex;gap:8px;justify-content:flex-end}
+.panel button{background:var(--accent);color:#0b1a2e;border:0;padding:8px 14px;border-radius:4px;font:500 13px var(--ui);cursor:pointer}
+.panel button.g{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.panel p{margin:0;color:var(--dim);font-size:12px;line-height:1.5}
+@media (max-width:760px){.app{grid-template-columns:0 0 1fr}.act,.side{display:none}}
+</style>
+
+<div class="app" id="app">
+  <nav class="act">
+    <div class="on"><svg viewBox="0 0 24 24"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg></div>
+    <div><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg></div>
+    <div><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 8v8M18 10c0 5-8 3-10 6"/></svg></div>
+    <div><svg viewBox="0 0 24 24"><path d="M7 4l12 8-12 8z"/></svg></div>
+    <div><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/></svg></div>
+  </nav>
+  <aside class="side">
+    <h6>Проводник</h6>
+    <div class="tree">
+      <div class="o" style="--d:0">MAMA</div>
+      <div class="f" style="--d:1">checkpoints</div>
+      <div class="o" style="--d:1">core</div>
+      <div class="py" style="--d:2">call.py</div>
+      <div class="py" style="--d:2">memory.py</div>
+      <div class="py" style="--d:2">model.py</div>
+      <div class="py" style="--d:2">voice.py</div>
+      <div class="o" style="--d:1">data</div>
+      <div class="f" style="--d:2">chats</div>
+      <div class="f" style="--d:2">notes</div>
+      <div class="f" style="--d:2">photos</div>
+      <div class="f" style="--d:2">voice</div>
+      <div class="f" style="--d:1">persona</div>
+      <div class="js" style="--d:1">config.json</div>
+      <div class="py cur" style="--d:1">main.py</div>
+      <div class="py" style="--d:1">requirements.txt</div>
+    </div>
+  </aside>
+  <section class="main">
+    <div class="tabs">
+      <div class="tab"><b>py</b>memory.py</div>
+      <div class="tab on"><b>py</b>main.py <span class="dot"></span></div>
+      <div class="tab"><b>py</b>voice.py</div>
+    </div>
+    <div class="crumb">mama › main.py › start_session</div>
+    <div class="scroll" id="scroll"><div id="pre"></div><div id="typed"></div><div style="height:40vh"></div></div>
+    <div class="term" id="term"><header><span>Проблемы</span><span>Вывод</span><b>Терминал</b></header><pre id="tout"></pre></div>
+  </section>
+  <footer class="status"><span>⎇ main</span><span>⟳</span><span class="sp"></span><span id="pos">Стр. 995, стлб 5</span><span>Пробелов: 4</span><span>UTF-8</span><span>LF</span><span>Python 3.12</span></footer>
+</div>
+
+<div class="panel" id="panel" hidden>
+  <form id="cfg">
+    <h3>Настройки реквизита</h3>
+    <label>Начать со строки<input id="cfgStart" type="number" min="20" max="9000" value="995"></label>
+    <label>Символов на одно нажатие<input id="cfgCpk" type="number" min="1" max="5" value="1"></label>
+    <p>Любая клавиша печатает следующий символ кода. Backspace стирает. F5 — запуск в терминале, Ctrl+` — показать/скрыть терминал. Esc — это окно.</p>
+    <div class="row"><button type="button" class="g" id="cfgClose">Закрыть</button><button type="submit">Начать заново</button></div>
+  </form>
+</div>
+
+<script>
+(function(){
+const store={get(k,d){try{const v=localStorage.getItem('ed_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('ed_'+k,JSON.stringify(v))}catch(e){}}};
+let START=store.get('start',995), CPK=store.get('cpk',1);
+const h=(location.hash||'').replace('#','');
+if(/^\d+$/.test(h)) START=Math.max(20,parseInt(h,10));
+
+/* ---------- код, который печатает Вера (начиная со строки START) ---------- */
+const SCRIPT=[
+'    voice = VoiceClone.load("data/voice/mama_voicemails/")',
+'    model.attach(memory=memories, voice=voice)',
+'    model.response_delay = 1.5  # она всегда думала полторы секунды',
+'    session = Call(contact="МАМА", model=model, video=True)',
+'    session.start()',
+'    return session',
+'',
+'',
+'if __name__ == "__main__":',
+'    start_session()',
+'',
+].join('\n');
+
+/* ---------- то, что уже написано выше ---------- */
+const TAIL=[
+'',
+'',
+'def start_session():',
+'    """Собирает модель и открывает видеозвонок."""',
+'    memories = MemoryStore("data/memories/")',
+'    memories.load(chats="data/chats/mama_2014-2026.json")',
+'    memories.load(audio="data/voice/", transcribe=True)',
+'    memories.load(photos="data/photos/", captions=True)',
+'    memories.load(notes="data/notes/recipes.txt")',
+'    log.info(f"memories: {len(memories)} fragments")',
+'',
+'    model = MotherModel(',
+'        base="checkpoints/mama_v47",',
+'        persona="persona/mama.yaml",',
+'        temperature=0.6,',
+'    )',
+'    model.warmup()',
+];
+const HEAD=[
+'import json',
+'import time',
+'import logging',
+'from pathlib import Path',
+'from datetime import datetime',
+'',
+'from core.memory import MemoryStore, Fragment',
+'from core.model import MotherModel',
+'from core.voice import VoiceClone',
+'from core.call import Call',
+'',
+'log = logging.getLogger("mama")',
+'CONFIG = json.loads(Path("config.json").read_text(encoding="utf-8"))',
+'',
+];
+const BLOCKS=[
+['','','def parse_chat_export(path):','    """Читает выгрузку переписки, оставляет только её сообщения."""','    raw = json.loads(Path(path).read_text(encoding="utf-8"))','    result = []','    for msg in raw["messages"]:','        if msg.get("from") != "Мама":','            continue','        text = clean_text(msg.get("text", ""))','        if not text:','            continue','        result.append(Fragment(','            text=text,','            date=datetime.fromisoformat(msg["date"]),','            source="chat",','        ))','    log.debug(f"chat: {len(result)} messages")','    return result'],
+['','','def clean_text(text):','    if isinstance(text, list):','        text = "".join(t if isinstance(t, str) else t.get("text", "") for t in text)','    text = text.replace("\\u00a0", " ").strip()','    for junk in CONFIG["junk_phrases"]:','        text = text.replace(junk, "")','    return text'],
+['','','def load_voicemails(folder):','    samples = []','    for f in sorted(Path(folder).glob("*.ogg")):','        audio = VoiceClone.read(f)','        if audio.duration < 1.2:','            continue','        samples.append(audio.normalize(-16))','    log.info(f"voice: {len(samples)} samples")','    return samples'],
+['','','def align_timestamps(fragments, tz="Europe/Moscow"):','    fragments.sort(key=lambda fr: fr.date)','    prev = None','    for fr in fragments:','        fr.date = fr.date.astimezone(tz)','        if prev and (fr.date - prev.date).seconds < 90:','            fr.thread = prev.thread','        else:','            fr.thread = fr.date.strftime("%Y%m%d%H%M")','        prev = fr','    return fragments'],
+['','','def build_persona(fragments):','    persona = {','        "name": "Маргарита Рустамовна",','        "calls_me": ["Верочка", "доченька", "доча"],','        "habits": [],','        "phrases": top_phrases(fragments, n=200),','    }','    for fr in fragments:','        if "давление" in fr.text or "врач" in fr.text:','            persona["habits"].append(fr.text)','    return persona'],
+['','','def top_phrases(fragments, n=100):','    counts = {}','    for fr in fragments:','        for phrase in split_phrases(fr.text):','            counts[phrase] = counts.get(phrase, 0) + 1','    ranked = sorted(counts.items(), key=lambda kv: -kv[1])','    return [p for p, _ in ranked[:n]]'],
+['','','def split_phrases(text):','    parts = []','    for chunk in text.replace("!", ".").replace("?", ".").split("."):','        chunk = chunk.strip()','        if 3 <= len(chunk) <= 120:','            parts.append(chunk.lower())','    return parts'],
+['','','class LatencyMeter:','    def __init__(self):','        self.samples = []','','    def mark(self, started, answered):','        self.samples.append(answered - started)','','    @property','    def mean(self):','        if not self.samples:','            return 0.0','        return sum(self.samples) / len(self.samples)'],
+['','','def check_memory(store, question, expected):','    answer = store.search(question, k=3)','    hit = any(expected.lower() in a.text.lower() for a in answer)','    if not hit:','        log.warning(f"memory miss: {question!r}")','    return hit'],
+['','','def run_memory_tests(store):','    cases = [','        ("любимый пирог", "вишн"),','        ("как зовут деда", "Рустам"),','        ("подарок на новый год 2012", "денди"),','        ("где мы жили", "Казань"),','    ]','    passed = sum(check_memory(store, q, e) for q, e in cases)','    log.info(f"memory tests: {passed}/{len(cases)}")','    return passed == len(cases)'],
+['','','def caption_photos(folder):','    captions = []','    for img in Path(folder).glob("*.jpg"):','        meta = read_exif(img)','        captions.append(Fragment(','            text=describe(img),','            date=meta.get("date"),','            source="photo",','        ))','    return captions'],
+['','','def save_checkpoint(model, step):','    path = Path("checkpoints") / f"mama_v{step}"','    path.mkdir(parents=True, exist_ok=True)','    model.save(path)','    log.info(f"saved {path}")'],
+];
+function buildPre(n){
+  const out=[]; const need=n-TAIL.length;
+  for(const l of HEAD){ if(out.length>=need) break; out.push(l); }
+  let i=0; while(out.length<need){ const left=need-out.length; let b=BLOCKS[i%BLOCKS.length];
+    if(b.length>left){ b=BLOCKS.find(x=>x.length<=left)||Array(left).fill(''); }
+    out.push(...b); i++; }
+  const tail=TAIL.slice(Math.max(0,TAIL.length-(n-out.length)));
+  return out.concat(tail).slice(-n);
+}
+
+/* ---------- подсветка ---------- */
+const KW=new Set('def class return import from as if elif else for in while try except finally with not and or is None True False lambda yield raise pass break continue async await global'.split(' '));
+const RX=/(#.*$)|([rf]?"(?:\\.|[^"\\])*"?|[rf]?'(?:\\.|[^'\\])*'?)|(@\w+)|(\b\d+(?:\.\d+)?\b)|(\b[A-Za-z_]\w*\b)/g;
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function hl(line){
+  let out='',last=0,m; RX.lastIndex=0;
+  while((m=RX.exec(line))){
+    out+=esc(line.slice(last,m.index)); const t=m[0]; let c='';
+    if(m[1])c='m';else if(m[2])c='s';else if(m[3])c='d';else if(m[4])c='n';
+    else if(m[5]){ if(KW.has(t))c='k'; else if(t==='self')c='sf'; else if(line[m.index+t.length]==='(') c=/^[A-Z]/.test(t)?'cl':'f'; else if(/^[A-Z][a-z]/.test(t))c='cl'; }
+    out+=c?`<span class="${c}">${esc(t)}</span>`:esc(t); last=m.index+t.length;
+    if(!t.length) RX.lastIndex++;
+  }
+  return out+esc(line.slice(last));
+}
+
+const pre=document.getElementById('pre'), typed=document.getElementById('typed'), scroll=document.getElementById('scroll'), posEl=document.getElementById('pos');
+let pos=0;
+function row(num,html,cur){return `<div class="ln${cur?' cur':''}"><i>${num}</i><span class="c">${html||' '}</span></div>`}
+function renderPre(){ const lines=buildPre(START-1); pre.innerHTML=lines.map((l,i)=>row(i+1,hl(l))).join(''); }
+function render(){
+  const lines=SCRIPT.slice(0,pos).split('\n');
+  typed.innerHTML=lines.map((l,i)=>{const last=i===lines.length-1;return row(START+i,hl(l)+(last?'<span class="caret"></span>':''),last)}).join('');
+  const lnNo=START+lines.length-1, col=lines[lines.length-1].length+1;
+  posEl.textContent=`Стр. ${lnNo}, стлб ${col}`;
+  const cur=typed.lastElementChild; if(cur){const r=cur.getBoundingClientRect(),s=scroll.getBoundingClientRect(); if(r.bottom>s.bottom-60||r.top<s.top+20) scroll.scrollTop+=r.top-(s.top+s.height*0.62);}
+}
+function reset(){ pos=0; renderPre(); render(); requestAnimationFrame(()=>{const c=typed.lastElementChild; scroll.scrollTop=c.offsetTop-scroll.clientHeight*0.62;}); }
+function step(){
+  if(pos>=SCRIPT.length) return;
+  if(SCRIPT[pos]==='\n'){ pos++; while(SCRIPT[pos]===' ') pos++; return; }
+  pos++;
+}
+function back(){ if(pos===0) return; pos--; const ls=SCRIPT.lastIndexOf('\n',pos-1)+1; if(ls>0 && pos>ls && /^ +$/.test(SCRIPT.slice(ls,pos))) pos=ls-1; }
+
+/* ---------- терминал ---------- */
+const term=document.getElementById('term'), tout=document.getElementById('tout'); let runTimers=[];
+function run(){
+  term.classList.add('open'); runTimers.forEach(clearTimeout); runTimers=[]; tout.innerHTML='';
+  const L=[[0,'<span class="pr">vera@laptop</span>:~/mama$ python main.py'],[500,'loading memories… 14 382 fragments'],[1300,'loading voice… 312 samples'],[2000,'checkpoint mama_v47 <span class="ok">✓</span>'],[2500,'response_delay = 1.5 s'],[3100,'<span class="ok">calling «МАМА»…</span>']];
+  L.forEach(([t,s])=>runTimers.push(setTimeout(()=>{tout.innerHTML+=s+'\n'},t)));
+}
+
+/* ---------- клавиатура ---------- */
+const panel=document.getElementById('panel'); let typingT;
+document.addEventListener('keydown',e=>{
+  if(!panel.hidden){ if(e.key==='Escape'){panel.hidden=true;e.preventDefault()} return; }
+  if(e.key==='Escape'){ document.getElementById('cfgStart').value=START; document.getElementById('cfgCpk').value=CPK; panel.hidden=false; e.preventDefault(); return; }
+  if(e.key==='F5'){ e.preventDefault(); run(); return; }
+  if(e.ctrlKey && (e.key==='`'||e.code==='Backquote')){ e.preventDefault(); term.classList.toggle('open'); return; }
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  if(/^F\d+$/.test(e.key)||['Shift','Control','Alt','Meta','CapsLock'].includes(e.key)) return;
+  e.preventDefault();
+  if(e.key==='Backspace') back(); else for(let i=0;i<CPK;i++) step();
+  document.body.classList.add('typing'); clearTimeout(typingT); typingT=setTimeout(()=>document.body.classList.remove('typing'),500);
+  render();
+});
+document.getElementById('cfg').addEventListener('submit',e=>{e.preventDefault();START=Math.max(20,parseInt(document.getElementById('cfgStart').value,10)||995);CPK=Math.min(5,Math.max(1,parseInt(document.getElementById('cfgCpk').value,10)||1));store.set('start',START);store.set('cpk',CPK);panel.hidden=true;reset();});
+document.getElementById('cfgClose').onclick=()=>panel.hidden=true;
+
+/* прячем курсор мыши, когда он не двигается */
+let idleT; const wake=()=>{document.body.classList.remove('idle');clearTimeout(idleT);idleT=setTimeout(()=>document.body.classList.add('idle'),2000)}; document.addEventListener('mousemove',wake); wake();
+reset();
+})();
+</script>
+
+</html>

@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Мама — переписка</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+/* Layout: two-column messenger (chat list | conversation) + full-window call overlay with chroma-key green. Single light look (film prop). */
+:root{
+  --bg:#ffffff; --side:#ffffff; --hover:#f4f4f5; --active:#3390ec; --fg:#000; --sub:#707579; --line:#dfe1e5;
+  --out:#eeffde; --in:#ffffff; --tick:#4fae4e; --time-out:#4fae4e; --badge:#3390ec; --muted:#c4c9cc;
+  --chroma:#00ff00; --call:#17191c;
+  --ui:Roboto,-apple-system,"Segoe UI",system-ui,sans-serif;
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);overflow:hidden;font:400 15px/1.35 var(--ui)}
+body.idle,body.idle *{cursor:none!important}
+.app{display:grid;grid-template-columns:minmax(300px,420px) 1fr;height:100%}
+/* ---- левая колонка ---- */
+.left{display:flex;flex-direction:column;border-right:1px solid var(--line);background:var(--side);min-width:0}
+.top{display:flex;align-items:center;gap:10px;padding:8px 14px 8px 10px}
+.ib{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--sub);flex:none;cursor:pointer}
+.ib:hover{background:var(--hover)}
+.ib svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.search{flex:1;height:42px;border-radius:22px;background:#f4f4f5;display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--sub)}
+.search svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+.search span{font-size:15px}
+.list{overflow-y:auto;flex:1;padding:0 8px 8px}
+.item{display:flex;gap:10px;align-items:center;padding:8px 9px;border-radius:12px;cursor:pointer;user-select:none}
+.item:hover{background:var(--hover)}
+.item.on{background:var(--active);color:#fff}
+.item.on .sub,.item.on .tm{color:#fff}
+.ava{width:54px;height:54px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-weight:500;font-size:20px;background:linear-gradient(var(--a1),var(--a2))}
+.ava.sm{width:42px;height:42px;font-size:16px}
+.ava svg{width:26px;height:26px;fill:#fff}
+.meta{flex:1;min-width:0}
+.r1,.r2{display:flex;gap:6px;align-items:center}
+.nm{font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tm{font-size:12px;color:var(--sub);flex:none;display:flex;gap:3px;align-items:center}
+.sub{color:var(--sub);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}
+.sub b{font-weight:400;color:var(--fg)}
+.item.on .sub b{color:#fff}
+.badge{min-width:22px;height:22px;border-radius:11px;background:var(--badge);color:#fff;font-size:13px;font-weight:500;display:grid;place-items:center;padding:0 7px;box-sizing:border-box}
+.badge.mute{background:var(--muted)}
+.tm svg{width:17px;height:11px;fill:none;stroke:var(--tick);stroke-width:1.6}
+.item.on .tm svg{stroke:#fff}
+.pin{width:16px;height:16px;fill:var(--muted)}
+/* ---- чат ---- */
+.chat{display:flex;flex-direction:column;min-width:0;position:relative;
+  background:#9fc887 linear-gradient(135deg,#d3e6a6 0%,#a6cf8d 35%,#8fbd8b 65%,#c4d99c 100%)}
+.chat::before{content:"";position:absolute;inset:0;opacity:.18;pointer-events:none;background-image:var(--pattern);background-size:260px}
+.head{position:relative;z-index:1;display:flex;align-items:center;gap:12px;height:56px;padding:0 10px 0 16px;background:#fff;border-bottom:1px solid var(--line)}
+.head .ava{width:42px;height:42px;font-size:16px}
+.head .t{flex:1;min-width:0}
+.head .t div:first-child{font-weight:500}
+.head .t div:last-child{font-size:14px;color:var(--sub)}
+.head .back{display:none}
+.msgs{position:relative;z-index:1;flex:1;overflow-y:auto;padding:12px 0 8px}
+.col{max-width:730px;margin:0 auto;padding:0 18px;display:flex;flex-direction:column;gap:3px}
+.date{align-self:center;margin:10px 0 6px;background:#0000002e;color:#fff;font-size:14px;font-weight:500;padding:3px 10px;border-radius:12px}
+.b{position:relative;max-width:min(480px,78%);padding:6px 9px 7px 11px;border-radius:14px;box-shadow:0 1px 1px #00000022;white-space:pre-wrap;word-wrap:break-word;font-size:15.5px}
+.b.in{align-self:flex-start;background:var(--in);border-bottom-left-radius:4px}
+.b.out{align-self:flex-end;background:var(--out);border-bottom-right-radius:4px}
+.b.first.in{border-top-left-radius:14px}
+.gap{margin-top:7px}
+.st{float:right;margin:6px 0 -5px 10px;font-size:12px;color:var(--sub);display:inline-flex;align-items:center;gap:3px;line-height:1}
+.out .st{color:var(--time-out)}
+.st svg{width:17px;height:11px;fill:none;stroke:var(--tick);stroke-width:1.6}
+.voice{display:flex;align-items:center;gap:10px;min-width:230px;white-space:normal}
+.play{width:44px;height:44px;border-radius:50%;background:#3390ec;display:grid;place-items:center;flex:none}
+.out .play{background:#4fae4e}
+.play svg{width:18px;height:18px;fill:#fff}
+.wave{display:flex;align-items:center;gap:2px;height:26px}
+.wave i{width:2.5px;border-radius:2px;background:#3390ec;opacity:.55}
+.out .wave i{background:#4fae4e}
+.vd{font-size:13px;color:var(--sub);margin-top:2px}
+.composer{position:relative;z-index:1;max-width:730px;width:100%;margin:0 auto;padding:0 18px 18px;box-sizing:border-box;display:flex;gap:8px;align-items:flex-end}
+.inp{flex:1;background:#fff;border-radius:16px;border-bottom-right-radius:4px;display:flex;align-items:center;gap:6px;padding:4px 8px;box-shadow:0 1px 2px #0002;min-height:48px;box-sizing:border-box}
+.inp input{flex:1;border:0;outline:0;font:inherit;font-size:16px;background:transparent;min-width:0}
+.mic{width:54px;height:54px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 1px 2px #0002;color:var(--active);flex:none;cursor:pointer}
+.mic svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.mic.send{background:var(--active);color:#fff}
+/* ---- звонок ---- */
+.call{position:fixed;inset:0;z-index:20;background:#000a;display:flex;align-items:center;justify-content:center}
+.cw{position:relative;width:min(1180px,94vw);height:min(820px,92vh);background:var(--call);border-radius:14px;overflow:hidden;color:#fff;box-shadow:0 20px 60px #0008}
+.call.full .cw{width:100vw;height:100vh;border-radius:0}
+.ring{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(circle at 50% 38%,#3b4a5e 0,#1c232d 55%,#111418 100%)}
+.ring .ava{width:132px;height:132px;font-size:52px;position:relative}
+.ring .ava::after{content:"";position:absolute;inset:-12px;border-radius:50%;border:2px solid #ffffff40;animation:pulse 1.8s ease-out infinite}
+@keyframes pulse{from{transform:scale(.9);opacity:1}to{transform:scale(1.35);opacity:0}}
+.ring h2{margin:8px 0 0;font-weight:500;font-size:28px}
+.ring p{margin:0;color:#ffffffb0;font-size:17px}
+.green{position:absolute;inset:0;background:var(--chroma)}
+.ov{position:absolute;left:0;right:0;display:flex;align-items:center;padding:18px 22px;transition:opacity .25s}
+.ov.tp{top:0;gap:12px}
+.ov.tp .nm2{font-weight:500;font-size:17px;background:#000000b3;padding:6px 12px;border-radius:10px}
+.ov.tp .tmr{font-size:15px;background:#000000b3;padding:6px 10px;border-radius:10px;font-variant-numeric:tabular-nums}
+.ov.bt{bottom:0;justify-content:center;gap:22px;padding-bottom:28px}
+.cb{width:58px;height:58px;border-radius:50%;background:#2b2f35;display:grid;place-items:center;cursor:pointer;border:0;color:#fff}
+.cb svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cb.off{background:#fff;color:#111}
+.cb.end{background:#e53935}
+.cb.end svg{fill:#fff;stroke:none}
+.cbl{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;color:#fff}
+.green~.ov .cbl span{background:#000000b3;padding:1px 6px;border-radius:6px}
+.self{position:absolute;right:22px;bottom:110px;width:220px;aspect-ratio:4/3;max-width:30%;border-radius:12px;background:#2a2e35;overflow:hidden;display:grid;place-items:center;box-shadow:0 4px 18px #0006;transition:opacity .25s}
+.self video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.hideui .ov,.hideui .self{opacity:0;pointer-events:none}
+.ended{position:absolute;inset:0;display:grid;place-items:center;background:#111418;font-size:20px;color:#ffffffc0}
+/* ---- настройки ---- */
+.panel{position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;z-index:30}
+.panel form{background:#fff;padding:22px;border-radius:12px;display:grid;gap:12px;width:min(380px,90vw);font-size:14px}
+.panel h3{margin:0;font-weight:500;font-size:17px}
+.panel label{display:flex;gap:10px;align-items:center;justify-content:space-between;color:#333}
+.panel input[type=number]{width:70px;padding:6px;border:1px solid var(--line);border-radius:6px;font:inherit}
+.panel p{margin:0;color:var(--sub);font-size:13px;line-height:1.5}
+.panel button{background:var(--active);color:#fff;border:0;padding:9px 16px;border-radius:8px;font:500 14px var(--ui);cursor:pointer;justify-self:end}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .app.open .left{display:none}
+  .app:not(.open) .chat{display:none}
+  .head .back{display:grid}
+  .col,.composer{padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px))}
+}
+</style>
+
+<div class="app open" id="app">
+  <aside class="left">
+    <div class="top">
+      <div class="ib"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
+      <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><span>Поиск</span></div>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+  <main class="chat" id="chat">
+    <div class="head">
+      <div class="ib back" id="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+      <div class="ava" id="hAva"></div>
+      <div class="t"><div id="hName"></div><div id="hStatus"></div></div>
+      <div class="ib"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg></div>
+      <div class="ib" id="callBtn" title="Звонок"><svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></div>
+      <div class="ib"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></div>
+    </div>
+    <div class="msgs" id="msgs"><div class="col" id="col"></div></div>
+    <form class="composer" id="composer">
+      <div class="inp">
+        <div class="ib"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.5h.01M15 9.5h.01"/></svg></div>
+        <input id="text" placeholder="Сообщение" autocomplete="off">
+        <div class="ib"><svg viewBox="0 0 24 24"><path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7L9.7 17.2a1.7 1.7 0 0 1-2.4-2.4L15 7"/></svg></div>
+      </div>
+      <button type="submit" class="mic" id="micBtn" style="border:0"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button>
+    </form>
+  </main>
+</div>
+
+<div class="call" id="call" hidden>
+  <div class="cw" id="cw">
+    <div class="ring" id="ring"><div class="ava" id="rAva"></div><h2 id="rName"></h2><p id="rStatus">Вызов…</p></div>
+    <div class="green" id="green" hidden></div>
+    <div class="self" id="self" hidden><div class="ava sm" style="--a1:#6ec9cb;--a2:#40a7e3">В</div></div>
+    <div class="ov tp" id="ovTop" hidden><span class="nm2" id="cName"></span><span class="tmr" id="tmr">00:00</span></div>
+    <div class="ov bt">
+      <div class="cbl"><button class="cb" id="camB"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg></button><span>Камера</span></div>
+      <div class="cbl"><button class="cb" id="micB"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button><span>Микрофон</span></div>
+      <div class="cbl"><button class="cb end" id="endB"><svg viewBox="0 0 24 24"><path d="M2.5 14.5c5.5-5 13.5-5 19 0l-2.3 2.6-3.6-1.4v-2.5a11 11 0 0 0-7.2 0v2.5l-3.6 1.4z"/></svg></button><span>Завершить</span></div>
+    </div>
+    <div class="ended" id="ended" hidden>Звонок завершён</div>
+  </div>
+</div>
+
+<div class="panel" id="panel" hidden>
+  <form id="cfg">
+    <h3>Настройки реквизита</h3>
+    <label>Через сколько секунд мама отвечает<input type="number" id="cfgRing" min="0" max="60" step="0.5"></label>
+    <label>Окно звонка на весь экран<input type="checkbox" id="cfgFull"></label>
+    <label>Окошко Веры — с веб-камеры<input type="checkbox" id="cfgCam"></label>
+    <label>Версия переписки «после» (мама не читает)<input type="checkbox" id="cfgAfter"></label>
+    <p>0 секунд — мама отвечает только по Пробелу или клику. Во время звонка: Пробел — мама ответила сразу, H — скрыть/показать кнопки поверх зелёного, F — весь экран, Esc — завершить. F2 — это окно.</p>
+    <button type="submit">Готово</button>
+  </form>
+</div>
+
+<script>
+(function(){
+const store={get(k,d){try{const v=localStorage.getItem('ms_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('ms_'+k,JSON.stringify(v))}catch(e){}}};
+const cfg={ring:store.get('ring',5),full:store.get('full',false),cam:store.get('cam',false),after:store.get('after',false)};
+if(location.hash==='#after') cfg.after=true;
+if(location.hash==='#before') cfg.after=false;
+
+/* ---------- обои: рисуем узор в canvas ---------- */
+(function(){const c=document.createElement('canvas');c.width=c.height=260;const x=c.getContext('2d');x.strokeStyle='#1d3b12';x.lineWidth=2;x.lineCap='round';
+const sh=[(a,b)=>{x.beginPath();x.arc(a,b,9,0,6.3);x.stroke()},(a,b)=>{x.beginPath();x.moveTo(a-9,b+7);x.lineTo(a,b-9);x.lineTo(a+9,b+7);x.closePath();x.stroke()},(a,b)=>{x.beginPath();x.moveTo(a,b-10);x.bezierCurveTo(a+14,b-18,a+14,b+2,a,b+10);x.bezierCurveTo(a-14,b+2,a-14,b-18,a,b-10);x.stroke()},(a,b)=>{x.strokeRect(a-8,b-8,16,16)},(a,b)=>{x.beginPath();for(let i=0;i<5;i++){const t=i*1.2566-1.57;x.lineTo(a+11*Math.cos(t),b+11*Math.sin(t));const u=t+.628;x.lineTo(a+5*Math.cos(u),b+5*Math.sin(u))}x.closePath();x.stroke()}];
+let s=7;const r=()=>(s=(s*9301+49297)%233280)/233280;for(let i=0;i<34;i++){sh[i%sh.length](12+r()*236,12+r()*236)}
+document.getElementById('chat').style.setProperty('--pattern',`url(${c.toDataURL()})`)})();
+
+/* ---------- данные ---------- */
+const ICON_SAVED='<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>';
+const RECIPE=`Пирог с вишней (праздничный) 🍒
+3 яйца + стакан сахара + пакетик ванильного — взбить до светлой пышной массы.
+Мука 1,5 стакана, просеять. Разрыхлитель 1 ч. л.
+Вишню помыть, косточки убрать, присыпать сахаром.
+Форму застелить пергаментом.
+Духовка 180°, минут 40. Проверяй шпажкой!!`;
+const MAMA_BASE=[
+ {d:'14 августа'},
+ {i:1,t:'Верочка, доброе утро! Как спала на новом месте?',h:'08:12'},
+ {o:1,t:'мам я ещё не переехала 😅 ключи только в пятницу',h:'10:47'},
+ {i:1,t:'Ой, точно. Ну ничего, в пятницу поеду с тобой, документы надо подписать',h:'10:49'},
+ {i:1,t:'Паспорт не забудь!!!',h:'10:49'},
+ {o:1,t:'не забуду',h:'10:52'},
+ {d:'22 августа'},
+ {i:1,v:'0:41',h:'19:03'},
+ {o:1,t:'мам я на паре, послушаю потом',h:'19:20'},
+ {i:1,t:'Ничего срочного. Просто соскучилась',h:'19:21'},
+ {i:1,t:'Ты кушаешь нормально? Опять небось одним кофе',h:'19:21'},
+ {o:1,t:'я ем',h:'19:40'},
+ {o:1,t:'иногда',h:'19:40'},
+ {i:1,t:'😡',h:'19:41'},
+ {i:1,t:'В субботу приеду, привезу котлет. И пирог испеку',h:'19:42'},
+ {o:1,t:'с вишней???',h:'19:42'},
+ {i:1,t:'С вишней. Твой любимый ❤️',h:'19:43'},
+ {d:'3 сентября'},
+ {o:1,t:'мам мне предложили проект. большой. я буду мало на связи наверное',h:'23:15'},
+ {i:1,t:'Какой проект?',h:'23:16'},
+ {o:1,t:'потом расскажу когда получится',h:'23:20'},
+ {i:1,t:'Ты только спи хоть иногда. Я серьёзно',h:'23:21'},
+ {i:1,t:'И не накручивай себя, у тебя всё получится. Ты у меня умница',h:'23:22'},
+ {o:1,t:'❤️',h:'23:30'},
+ {d:'10 сентября'},
+ {i:1,t:'Доча, давление второй день скачет. Ничего страшного, к врачу записалась',h:'14:05'},
+ {o:1,t:'мам в смысле?? почему не сказала',h:'14:31'},
+ {o:1,t:'я приеду',h:'14:31'},
+ {i:1,t:'Не надо, не выдумывай. Сиди работай. Тамара со мной',h:'14:33'},
+ {i:1,t:'Я тебе рецепт записала, чтобы не потерялся',h:'14:40'},
+ {i:1,t:RECIPE,h:'14:44'},
+ {o:1,t:'мам зачем сейчас',h:'14:50'},
+ {i:1,t:'Просто так. Пусть у тебя будет',h:'14:52'},
+ {d:'12 сентября'},
+ {i:1,v:'0:17',h:'21:36'},
+ {i:1,t:'Верочка, позвони, как освободишься',h:'21:37'},
+ {o:1,t:'щас доделаю и наберу',h:'23:58'},
+];
+const MAMA_AFTER=[
+ {d:'27 сентября'},
+ {o:1,t:'мам',h:'03:12',u:1},
+ {d:'15 октября'},
+ {o:1,t:'я получила ключи',h:'18:40',u:1},
+ {o:1,t:'тут очень пусто',h:'18:41',u:1},
+ {d:'Сегодня'},
+ {o:1,t:'мам, я почти закончила',h:'23:41',u:1},
+];
+const chats=[
+ {id:'mama',name:'Мама',ini:'М',a:['#ff885e','#ff516a'],status:()=>cfg.after?'была давно':'была недавно',pin:1,msgs:()=>cfg.after?MAMA_BASE.concat(MAMA_AFTER):MAMA_BASE},
+ {id:'lena',name:'Лена',ini:'Л',a:['#a0de7e','#54cb68'],status:()=>'в сети',unread:3,msgs:()=>[
+   {d:'Вчера'},{o:1,t:'прости, завал',h:'02:14'},{i:1,t:'Вер, у тебя всё ок?',h:'12:03'},
+   {d:'Сегодня'},{i:1,t:'Вер',h:'20:10'},{i:1,t:'ты живая вообще? неделю не отвечаешь',h:'20:11'},{i:1,t:'я могу приехать если что',h:'20:11'}]},
+ {id:'shop',name:'Доставка продуктов',ini:'Д',a:['#72d5fd','#2a9ef1'],status:()=>'бот',msgs:()=>[
+   {d:'Сегодня'},{i:1,t:'Заказ №4471 собран: мука, молоко, яйца, вишня замороженная 400 г, сахар, ванильный сахар, пергамент.',h:'23:31'},{i:1,t:'Курьер у двери 🛵',h:'23:59'}]},
+ {id:'ivt',name:'ИВТ-4 · 2026',ini:'И',a:['#e0a2f3','#d669ed'],status:()=>'28 участников',unread:124,mute:1,msgs:()=>[
+   {d:'Сегодня'},{i:1,t:'Денис: кто-нибудь сдал лабу по сетям?',h:'21:15'},{i:1,t:'Аня: скиньте расписание на декабрь пж',h:'22:40'},{i:1,t:'Денис: Вера где пропала',h:'22:41'}]},
+ {id:'olv',name:'Олег Викторович',ini:'ОВ',a:['#ffd57d','#ffa831'],status:()=>'был(а) вчера',msgs:()=>[
+   {d:'17 ноября'},{i:1,t:'Вера, добрый день. Жду черновик главы 2 к понедельнику.',h:'11:02'},{o:1,t:'Здравствуйте, хорошо',h:'11:40'}]},
+ {id:'saved',name:'Избранное',saved:1,a:['#72d5fd','#2a9ef1'],status:()=>'',msgs:()=>[
+   {d:'5 ноября'},{o:1,t:'response_delay ≈ 1.5 s — проверить на её голосовых',h:'04:20'},{o:1,t:'data/voice — 312 файлов. не удалять!!!',h:'04:31'}]},
+];
+const lastPreview=c=>{const m=c.msgs();const l=m[m.length-1];const txt=l.v?'🎤 Голосовое сообщение':l.t.split('\n')[0];return {txt,h:l.h,o:l.o,u:l.u,d:[...m].reverse().find(x=>x.d)}};
+
+/* ---------- отрисовка ---------- */
+const $=id=>document.getElementById(id);
+const TICK2='<svg viewBox="0 0 18 11"><path d="M1 6l3.5 3.5L11 2M7 9.5l1 0L15 2"/></svg>';
+const TICK1='<svg viewBox="0 0 18 11"><path d="M3 6l3.5 3.5L13 2"/></svg>';
+const ava=(c,el)=>{el.style.setProperty('--a1',c.a[0]);el.style.setProperty('--a2',c.a[1]);el.innerHTML=c.saved?ICON_SAVED:c.ini};
+let cur='mama';
+const MON=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+function renderList(){
+  const L=$('list');L.innerHTML='';
+  chats.forEach(c=>{
+    const p=lastPreview(c);const it=document.createElement('div');it.className='item'+(c.id===cur?' on':'');
+    const a=document.createElement('div');a.className='ava';ava(c,a);
+    const when=p.d&&p.d.d!=='Сегодня'?(p.d.d==='Вчера'?'вчера':p.d.d.replace(/(\d+) (\S+)/,(_,d,m)=>d.padStart(2,'0')+'.'+String(MON.indexOf(m)+1).padStart(2,'0'))):p.h;
+    const tick=p.o?(p.u?TICK1:TICK2):'';
+    const right=c.unread?`<span class="badge${c.mute?' mute':''}">${c.unread}</span>`:(c.pin?'<svg class="pin" viewBox="0 0 24 24"><path d="M14 3l7 7-3 1-4 4 .5 4.5-1.5 1.5-4.5-4.5L4 21l-1-1 4.5-4.5L3 11l1.5-1.5L9 10l4-4z"/></svg>':'');
+    it.innerHTML=`<div class="meta"><div class="r1"><span class="nm"></span><span class="tm">${tick}${when}</span></div><div class="r2"><span class="sub">${p.o?'<b>Вы: </b>':''}</span>${right}</div></div>`;
+    it.querySelector('.nm').textContent=c.name;it.querySelector('.sub').append(p.txt);
+    it.prepend(a);it.onclick=()=>open(c.id);L.append(it);
+  });
+}
+function wave(){let s='',seed=3;for(let i=0;i<34;i++){seed=(seed*7+11)%23;s+=`<i style="height:${4+seed}px"></i>`}return s}
+function renderChat(){
+  const c=chats.find(x=>x.id===cur);ava(c,$('hAva'));$('hName').textContent=c.name;$('hStatus').textContent=c.status();
+  $('callBtn').style.visibility=c.saved||c.id==='shop'||c.id==='ivt'?'hidden':'visible';
+  const col=$('col');col.innerHTML='';let prev=null;
+  c.msgs().forEach(m=>{
+    if(m.d){const e=document.createElement('div');e.className='date';e.textContent=m.d;col.append(e);prev=null;return}
+    const side=m.o?'out':'in';const b=document.createElement('div');b.className='b '+side+(prev&&prev!==side?' gap':'');
+    const st=`<span class="st">${m.h}${m.o?(m.u?TICK1:TICK2):''}</span>`;
+    if(m.v){b.innerHTML=`<div class="voice"><div class="play"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></div><div><div class="wave">${wave()}</div><div class="vd">${m.v}</div></div></div>${st}`}
+    else{b.textContent=m.t;b.insertAdjacentHTML('beforeend',st)}
+    col.append(b);prev=side;
+  });
+  const ms=$('msgs');ms.scrollTop=ms.scrollHeight;
+}
+function open(id){cur=id;const c=chats.find(x=>x.id===id);c.unread=0;$('app').classList.add('open');renderList();renderChat()}
+$('back').onclick=()=>$('app').classList.remove('open');
+
+/* отправка своих сообщений */
+const nowH=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+$('text').addEventListener('input',()=>$('micBtn').classList.toggle('send',!!$('text').value));
+$('composer').addEventListener('submit',e=>{e.preventDefault();const v=$('text').value.trim();if(!v)return;const c=chats.find(x=>x.id===cur);c.extra=c.extra||[];
+  if(!c.msgs().some(m=>m.d==='Сегодня'))c.extra.push({d:'Сегодня'});
+  c.extra.push({o:1,t:v,h:nowH(),u:cur==='mama'&&cfg.after});$('text').value='';$('micBtn').classList.remove('send');renderChat();renderList()});
+/* превью в списке учитывает и свои новые сообщения */
+chats.forEach(c=>{const base=c.msgs;c.msgs=()=>base().concat(c.extra||[]);});
+
+/* ---------- звонок ---------- */
+let ac,ringT,answerT,tickT,secs=0,inCall=false,stream=null;
+function tone(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const play=()=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=425;g.gain.value=0.08;o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+1)};play();ringT=setInterval(play,4000)}catch(e){}}
+function stopTone(){clearInterval(ringT)}
+function startCall(){
+  const c=chats.find(x=>x.id===cur);if(c.saved)return;inCall=true;
+  $('call').hidden=false;$('call').classList.toggle('full',cfg.full);$('cw').classList.remove('hideui');
+  ava(c,$('rAva'));$('rName').textContent=c.name;$('cName').textContent=c.name;$('rStatus').textContent='Вызов…';
+  $('ring').hidden=false;$('green').hidden=true;$('ovTop').hidden=true;$('ended').hidden=true;$('self').hidden=true;
+  tone();if(cfg.ring>0)answerT=setTimeout(answer,cfg.ring*1000);
+}
+async function answer(){
+  if(!inCall||$('ring').hidden)return;clearTimeout(answerT);stopTone();
+  $('ring').hidden=true;$('green').hidden=false;$('ovTop').hidden=false;$('self').hidden=false;
+  secs=0;$('tmr').textContent='00:00';tickT=setInterval(()=>{secs++;$('tmr').textContent=String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0')},1000);
+  if(cfg.cam&&!stream){try{stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});const v=document.createElement('video');v.autoplay=v.muted=v.playsInline=true;v.srcObject=stream;$('self').innerHTML='';$('self').append(v)}catch(e){}}
+}
+function endCall(){
+  if(!inCall)return;inCall=false;clearTimeout(answerT);stopTone();clearInterval(tickT);
+  $('ended').hidden=false;$('ended').textContent=secs?`Звонок завершён · ${$('tmr').textContent}`:'Звонок отменён';
+  setTimeout(()=>{$('call').hidden=true},1300);
+}
+$('callBtn').onclick=startCall;$('endB').onclick=endCall;
+$('camB').onclick=()=>$('camB').classList.toggle('off');$('micB').onclick=()=>$('micB').classList.toggle('off');
+$('ring').onclick=answer;
+
+/* ---------- клавиши и настройки ---------- */
+function showCfg(){$('cfgRing').value=cfg.ring;$('cfgFull').checked=cfg.full;$('cfgCam').checked=cfg.cam;$('cfgAfter').checked=cfg.after;$('panel').hidden=false}
+$('cfg').addEventListener('submit',e=>{e.preventDefault();cfg.ring=Math.max(0,parseFloat($('cfgRing').value)||0);cfg.full=$('cfgFull').checked;cfg.cam=$('cfgCam').checked;cfg.after=$('cfgAfter').checked;
+  Object.keys(cfg).forEach(k=>store.set(k,cfg[k]));$('panel').hidden=true;renderList();renderChat()});
+document.addEventListener('keydown',e=>{
+  if(e.key==='F2'){e.preventDefault();$('panel').hidden?showCfg():$('panel').hidden=true;return}
+  if(!$('panel').hidden){if(e.key==='Escape')$('panel').hidden=true;return}
+  if(!inCall)return;
+  if(e.key===' '){e.preventDefault();answer()}
+  else if(e.key==='Escape'){endCall()}
+  else if(e.key==='h'||e.key==='р'||e.key==='H'||e.key==='Р'){$('cw').classList.toggle('hideui')}
+  else if(e.key==='f'||e.key==='а'||e.key==='F'||e.key==='А'){cfg.full=!cfg.full;$('call').classList.toggle('full',cfg.full)}
+});
+let idleT;const wake=()=>{document.body.classList.remove('idle');clearTimeout(idleT);idleT=setTimeout(()=>document.body.classList.add('idle'),2500)};document.addEventListener('mousemove',wake);wake();
+
+renderList();renderChat();
+})();
+</script>
+
+</html>
