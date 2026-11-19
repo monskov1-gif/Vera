@@ -79,7 +79,7 @@ body.idle,body.idle *{cursor:none!important}
 .mic svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
 .mic.send{background:var(--active);color:#fff}
 /* ---- звонок ---- */
-.call{position:fixed;inset:0;z-index:20;background:#000a;display:flex;align-items:center;justify-content:center}
+.call{position:fixed;inset:0;z-index:20;background:#000000e6;display:flex;align-items:center;justify-content:center}
 .cw{position:relative;width:min(1180px,94vw);height:min(820px,92vh);background:var(--call);border-radius:14px;overflow:hidden;color:#fff;box-shadow:0 20px 60px #0008}
 .call.full .cw{width:100vw;height:100vh;border-radius:0}
 .ring{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(circle at 50% 38%,#3b4a5e 0,#1c232d 55%,#111418 100%)}
@@ -101,9 +101,7 @@ body.idle,body.idle *{cursor:none!important}
 .cb.end svg{fill:#fff;stroke:none}
 .cbl{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;color:#fff}
 .green~.ov .cbl span{background:#000000b3;padding:1px 6px;border-radius:6px}
-.self{position:absolute;right:22px;bottom:110px;width:220px;aspect-ratio:4/3;max-width:30%;border-radius:12px;background:#2a2e35;overflow:hidden;display:grid;place-items:center;box-shadow:0 4px 18px #0006;transition:opacity .25s}
-.self video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-.hideui .ov,.hideui .self{opacity:0;pointer-events:none}
+.hideui .ov{opacity:0;pointer-events:none}
 .ended{position:absolute;inset:0;display:grid;place-items:center;background:#111418;font-size:20px;color:#ffffffc0}
 /* ---- настройки ---- */
 .panel{position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;z-index:30}
@@ -155,7 +153,6 @@ body.idle,body.idle *{cursor:none!important}
   <div class="cw" id="cw">
     <div class="ring" id="ring"><div class="ava" id="rAva"></div><h2 id="rName"></h2><p id="rStatus">Вызов…</p></div>
     <div class="green" id="green" hidden></div>
-    <div class="self" id="self" hidden><div class="ava sm" style="--a1:#6ec9cb;--a2:#40a7e3">В</div></div>
     <div class="ov tp" id="ovTop" hidden><span class="nm2" id="cName"></span><span class="tmr" id="tmr">00:00</span></div>
     <div class="ov bt">
       <div class="cbl"><button class="cb" id="camB"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg></button><span>Камера</span></div>
@@ -171,7 +168,6 @@ body.idle,body.idle *{cursor:none!important}
     <h3>Настройки реквизита</h3>
     <label>Через сколько секунд мама отвечает<input type="number" id="cfgRing" min="0" max="60" step="0.5"></label>
     <label>Окно звонка на весь экран<input type="checkbox" id="cfgFull"></label>
-    <label>Окошко Веры — с веб-камеры<input type="checkbox" id="cfgCam"></label>
     <label>Версия переписки «после» (мама не читает)<input type="checkbox" id="cfgAfter"></label>
     <p>0 секунд — мама отвечает только по Пробелу или клику. Во время звонка: Пробел — мама ответила сразу, H — скрыть/показать кнопки поверх зелёного, F — весь экран, Esc — завершить. F2 — это окно.</p>
     <button type="submit">Готово</button>
@@ -318,14 +314,13 @@ function startCall(){
   const c=chats.find(x=>x.id===cur);if(c.saved)return;inCall=true;
   $('call').hidden=false;$('call').classList.toggle('full',cfg.full);$('cw').classList.remove('hideui');
   ava(c,$('rAva'));$('rName').textContent=c.name;$('cName').textContent=c.name;$('rStatus').textContent='Вызов…';
-  $('ring').hidden=false;$('green').hidden=true;$('ovTop').hidden=true;$('ended').hidden=true;$('self').hidden=true;
+  $('ring').hidden=false;$('green').hidden=true;$('ovTop').hidden=true;$('ended').hidden=true;
   tone();if(cfg.ring>0)answerT=setTimeout(answer,cfg.ring*1000);
 }
 async function answer(){
   if(!inCall||$('ring').hidden)return;clearTimeout(answerT);stopTone();
-  $('ring').hidden=true;$('green').hidden=false;$('ovTop').hidden=false;$('self').hidden=false;
+  $('ring').hidden=true;$('green').hidden=false;$('ovTop').hidden=false;
   secs=0;$('tmr').textContent='00:00';tickT=setInterval(()=>{secs++;$('tmr').textContent=String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0')},1000);
-  if(cfg.cam&&!stream){try{stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});const v=document.createElement('video');v.autoplay=v.muted=v.playsInline=true;v.srcObject=stream;$('self').innerHTML='';$('self').append(v)}catch(e){}}
 }
 function endCall(){
   if(!inCall)return;inCall=false;clearTimeout(answerT);stopTone();clearInterval(tickT);
@@ -337,8 +332,8 @@ $('camB').onclick=()=>$('camB').classList.toggle('off');$('micB').onclick=()=>$(
 $('ring').onclick=answer;
 
 /* ---------- клавиши и настройки ---------- */
-function showCfg(){$('cfgRing').value=cfg.ring;$('cfgFull').checked=cfg.full;$('cfgCam').checked=cfg.cam;$('cfgAfter').checked=cfg.after;$('panel').hidden=false}
-$('cfg').addEventListener('submit',e=>{e.preventDefault();cfg.ring=Math.max(0,parseFloat($('cfgRing').value)||0);cfg.full=$('cfgFull').checked;cfg.cam=$('cfgCam').checked;cfg.after=$('cfgAfter').checked;
+function showCfg(){$('cfgRing').value=cfg.ring;$('cfgFull').checked=cfg.full;$('cfgAfter').checked=cfg.after;$('panel').hidden=false}
+$('cfg').addEventListener('submit',e=>{e.preventDefault();cfg.ring=Math.max(0,parseFloat($('cfgRing').value)||0);cfg.full=$('cfgFull').checked;cfg.after=$('cfgAfter').checked;
   Object.keys(cfg).forEach(k=>store.set(k,cfg[k]));$('panel').hidden=true;renderList();renderChat()});
 document.addEventListener('keydown',e=>{
   if(e.key==='F2'){e.preventDefault();$('panel').hidden?showCfg():$('panel').hidden=true;return}
